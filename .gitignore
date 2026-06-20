@@ -1,0 +1,7 @@
+.env
+results.json
+output.json
+output_with_evidence.json
+__pycache__/
+*.pyc
+.vercel
