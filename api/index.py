@@ -96,12 +96,12 @@ def deep_dive_route():
     problem = body.get("problem", "").strip()
     analogy = body.get("analogy", {})
     lang = body.get("lang", "en")
+    answers = body.get("answers", {})
     if not problem or not analogy:
         return jsonify({"error": "Missing problem or analogy"}), 400
     try:
-        # Fetch Wikipedia BEFORE calling LLM — used to ground the deep dive
         wiki = get_summary(analogy.get("domain", ""))
-        result = deep_dive(problem, analogy, lang, wikipedia=wiki)
+        result = deep_dive(problem, analogy, lang, wikipedia=wiki, answers=answers)
         result["wikipedia"] = wiki
         return jsonify(result)
     except Exception as e:

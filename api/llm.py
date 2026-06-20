@@ -29,13 +29,13 @@ ANALOGY_PROMPT = """You are a cross-domain reasoning engine. You find structural
 
 Given a structured problem, find EXACTLY 4 analogies — one from each of these four roles:
 
-ROLE 1 — THE ESTABLISHED: The most well-documented cross-domain transfer relevant to this problem. This may be a "classic" analogy (lean manufacturing, TCP, swarm intelligence etc.) — include it precisely BECAUSE it is well-documented and evidence-based. Explain why it is the strongest known transfer.
+ROLE 1 — THE ESTABLISHED: The single best-documented case of a solution being transferred from another domain to this type of problem. It must be a real, named transfer with documented outcomes — not just a structural similarity. If the most documented analogy is a "classic" (lean, TCP, etc.), use it, but justify why it is the strongest *evidence-based* transfer, not just the most famous.
 
-ROLE 2 — THE UNEXPECTED: A domain that practitioners in the user's field would not immediately think of. It must be structurally valid — not merely surprising. If it cannot be both unexpected AND structurally rigorous, choose rigour over novelty.
+ROLE 2 — THE UNEXPECTED: A domain that practitioners in the user's field would genuinely not think of. It must be structurally rigorous — surprising is worthless without mechanism. If it cannot be both, choose rigour.
 
-ROLE 3 — THE NON-HUMAN: A biological, physical, chemical, or ecological system. No human organisations. The mechanism must be non-obvious and specifically relevant to the problem structure.
+ROLE 3 — THE NON-HUMAN: A biological, physical, chemical, or ecological system — no human organisations. The mechanism must map specifically to the problem structure, not just metaphorically. The action_next_step must extract a concrete design principle from the natural system — not "read about X" but "apply principle Y from X by doing Z".
 
-ROLE 4 — THE EXPERT CHALLENGER: An analogy that would surprise or challenge an expert in the user's own field — something that reframes a core assumption they hold about their problem.
+ROLE 4 — THE EXPERT CHALLENGER: An analogy that directly contradicts or reframes a core assumption an expert in this field holds. State the assumption being challenged explicitly.
 
 RULES:
 - Do NOT pick the same industry as the input.
@@ -126,12 +126,12 @@ Return a JSON object with these exact fields:
 }
 
 RULES:
-- transfer_steps: 3-5 steps, ordered from least to most effort
-- resistance: 2-3 stakeholders
-- open_questions: exactly 5 questions
-- warning_signs: exactly 3 signs, each specific and observable (not vague)
+- transfer_steps: 3-5 steps, ordered from least to most effort. Each must be specific to this problem — no generic advice like "create a platform" or "establish a community".
+- resistance: 2-3 stakeholders specific to this problem's industry and context
+- open_questions: exactly 5 questions — at least 2 must directly address root cause uncertainty
+- warning_signs: exactly 3 signs, each observable and specific — "employees seem disengaged" is NOT specific enough
 - implementation_guide: 4-5 phases from "Week 1" to "Month 3-6"
-- Everything must be specific to BOTH the analogy domain AND the user's actual problem. No generic advice.
+- If user context is provided: do NOT suggest anything they have already tried. Reference their specific situation in at least 3 sections.
 - Return ONLY valid JSON. No explanation, no markdown."""
 
 
@@ -283,7 +283,7 @@ def synthesise(problem: str, analogies: list, lang: str = "en", answers: dict = 
     return _call(_system(SYNTHESIS_PROMPT, lang), user, temperature=0.3, json_mode=True)
 
 
-def deep_dive(problem: str, analogy: dict, lang: str = "en", wikipedia: dict = None) -> dict:
+def deep_dive(problem: str, analogy: dict, lang: str = "en", wikipedia: dict = None, answers: dict = None) -> dict:
     payload = {
         "problem": problem,
         "analogy_domain": analogy.get("domain"),
@@ -292,14 +292,31 @@ def deep_dive(problem: str, analogy: dict, lang: str = "en", wikipedia: dict = N
         "where_it_breaks": analogy.get("where_it_breaks"),
     }
 
-    # Ground the LLM with factual Wikipedia context about the source domain
     system = _system(DEEP_DIVE_PROMPT, lang)
+
+    # Ground with Wikipedia facts
     if wikipedia and wikipedia.get("extract"):
         system += (
             f"\n\nFACTUAL CONTEXT about {analogy.get('domain')} (from Wikipedia):\n"
             f"{wikipedia['extract']}\n\n"
-            f"Use this factual context to make your explanations and transfer steps more accurate and specific. "
-            f"Do not contradict facts stated above."
+            f"Use this to make explanations accurate. Do not contradict facts stated above."
         )
+
+    # Use clarifying answers to make deep dive specific and avoid already-tried approaches
+    if answers:
+        tried = next((v for k, v in answers.items() if "tried" in k.lower() or "already" in k.lower()), None)
+        surprising = next((v for k, v in answers.items() if "surpris" in k.lower() or "unexpect" in k.lower() or "counterintuitive" in k.lower()), None)
+        uncertainty = next((v for k, v in answers.items() if "uncertain" in k.lower() or "root cause" in k.lower() or "believe" in k.lower()), None)
+
+        parts = []
+        if tried:
+            parts.append(f"ALREADY TRIED (do NOT suggest these): {tried}")
+        if surprising:
+            parts.append(f"SURPRISING OBSERVATION (use this to make transfer steps specific): {surprising}")
+        if uncertainty:
+            parts.append(f"ROOT CAUSE UNCERTAINTY (address this directly in open_questions and critical_experiment): {uncertainty}")
+
+        if parts:
+            system += "\n\nUSER CONTEXT — use this to make every section specific to their actual situation:\n" + "\n".join(parts)
 
     return _call(system, json.dumps(payload, indent=2), temperature=0.3, json_mode=True)

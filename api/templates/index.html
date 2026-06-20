@@ -616,7 +616,7 @@
       fetch('/deep-dive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ problem, analogy, lang })
+        body: JSON.stringify({ problem, analogy, lang, answers: getAnswers() })
       })
         .then(r => r.json())
         .then(dd => {
