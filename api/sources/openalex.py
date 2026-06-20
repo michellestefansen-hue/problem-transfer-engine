@@ -1,10 +1,10 @@
 """
-OpenAlex source — searches for academic papers by query.
+OpenAlex source — finds academic papers using concept-based search.
 
-Current status: integrated but results are best used as supplementary context.
-Keyword search returns high-citation papers that may not always be domain-specific.
-
-To add a new search strategy, add a function here and import it in index.py.
+Strategy: instead of keyword search (which returns irrelevant high-citation papers),
+we look up OpenAlex concept IDs for each mechanism, then find papers tagged with
+those concepts across multiple fields. This is more precise because it uses
+OpenAlex's own academic taxonomy rather than surface text matching.
 """
 
 import json
@@ -12,20 +12,49 @@ import urllib.request
 import urllib.parse
 
 
-def search(query: str, max_results: int = 3) -> list:
-    encoded = urllib.parse.quote(query)
+def _fetch(url: str) -> dict:
+    with urllib.request.urlopen(url, timeout=8) as response:
+        return json.loads(response.read())
+
+
+def find_concept_ids(terms: list, max_per_term: int = 2) -> list:
+    """Look up OpenAlex concept IDs for a list of mechanism terms."""
+    concept_ids = []
+    for term in terms[:4]:  # limit API calls
+        encoded = urllib.parse.quote(term)
+        url = f"https://api.openalex.org/concepts?search={encoded}&per-page={max_per_term}&select=id,display_name,level"
+        try:
+            data = _fetch(url)
+            for c in data.get("results", []):
+                if c.get("level", 99) <= 3:  # skip overly specific leaf concepts
+                    concept_ids.append(c["id"].replace("https://openalex.org/", ""))
+        except Exception:
+            continue
+    return list(dict.fromkeys(concept_ids))  # deduplicate, preserve order
+
+
+def find_papers(mechanisms: list, domain: str, max_results: int = 3) -> list:
+    """
+    Find papers related to the given mechanisms, excluding the analogy domain's
+    own field so we get cross-domain results.
+    """
+    concept_ids = find_concept_ids(mechanisms)
+    if not concept_ids:
+        return []
+
+    # Search papers tagged with any of these concepts
+    concepts_filter = "|".join(concept_ids[:4])
+    encoded_domain = urllib.parse.quote(domain)
     url = (
         f"https://api.openalex.org/works"
-        f"?search={encoded}"
-        f"&filter=is_oa:true"
-        f"&sort=relevance_score:desc"
+        f"?filter=concepts.id:{concepts_filter},is_oa:true,cited_by_count:>30"
+        f"&sort=cited_by_count:desc"
         f"&per-page={max_results}"
         f"&select=title,doi,publication_year,cited_by_count,primary_location,concepts"
         f"&mailto=problem-transfer-engine@example.com"
     )
     try:
-        with urllib.request.urlopen(url, timeout=8) as response:
-            data = json.loads(response.read())
+        data = _fetch(url)
         papers = []
         for work in data.get("results", []):
             source = work.get("primary_location") or {}
