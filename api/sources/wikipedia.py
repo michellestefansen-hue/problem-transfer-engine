@@ -19,7 +19,7 @@ def get_summary(topic: str) -> dict:
             return {}
         return {
             "title": data.get("title", ""),
-            "extract": data.get("extract", "")[:500],
+            "extract": data.get("extract", "")[:2000],
             "url": data.get("content_urls", {}).get("desktop", {}).get("page", ""),
             "thumbnail": (data.get("thumbnail") or {}).get("source", ""),
         }
