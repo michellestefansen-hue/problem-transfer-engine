@@ -125,6 +125,7 @@
         papersLabel: 'Related research',
         exploreBtn: 'Explore this idea',
         wikiLabel: 'About this domain',
+        evidenceLabels: { documented: 'Documented', limited: 'Limited evidence', undocumented: 'Undocumented' },
         panelLabel: 'Deep dive',
         panelLoading: 'Generating deep dive — this takes 20–30 seconds',
         s1Title: 'How it works — simply explained',
@@ -169,6 +170,7 @@
         papersLabel: 'Relatert forskning',
         exploreBtn: 'Utforsk denne ideen',
         wikiLabel: 'Om dette domenet',
+        evidenceLabels: { documented: 'Dokumentert', limited: 'Begrenset evidens', undocumented: 'Udokumentert' },
         panelLabel: 'Dypdykk',
         panelLoading: 'Genererer dypdykk — dette tar 20–30 sekunder',
         s1Title: 'Slik fungerer det — enkelt forklart',
@@ -347,6 +349,11 @@
                 <span class="text-xs text-slate-400">${levelLabel}</span>
               </div>
               ${isBest ? `<span class="ml-1 text-xs font-semibold text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">${t.bestMatch}</span>` : ''}
+              ${a.evidence_level ? `<span class="ml-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                a.evidence_level === 'documented' ? 'text-emerald-700 bg-emerald-50' :
+                a.evidence_level === 'limited' ? 'text-amber-700 bg-amber-50' :
+                'text-slate-500 bg-slate-100'
+              }">${t.evidenceLabels[a.evidence_level]}</span>` : ''}
             </div>
             <div class="flex items-center gap-2">
               <div class="flex gap-0.5">

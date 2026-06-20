@@ -16,6 +16,21 @@ from sources.openalex import find_papers
 app = Flask(__name__, template_folder="templates")
 
 
+def _evidence_level(papers: list) -> str:
+    n = len(papers)
+    if n == 0:
+        return "undocumented"
+    if n == 1:
+        return "limited"
+    return "documented"
+
+
+def _adjust_score(score: int, evidence_level: str) -> int:
+    """Nudge transferability score based on evidence from OpenAlex."""
+    adjustment = {"undocumented": -8, "limited": -3, "documented": 0}
+    return max(0, min(100, score + adjustment.get(evidence_level, 0)))
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -31,13 +46,23 @@ def analyze():
     try:
         structure = structure_problem(problem, lang)
         analogies = find_analogies(structure, lang)
-        synthesis = synthesise(problem, analogies, lang)
 
-        # Enrich each analogy with papers (non-blocking — empty list on failure)
+        # Enrich each analogy with OpenAlex papers, then use paper count
+        # to adjust transferability score — undocumented analogies score lower
         mechanisms = structure.get("mechanisms", [])
         for a in analogies:
-            a["papers"] = find_papers(mechanisms, a["domain"])
+            papers = find_papers(mechanisms, a["domain"])
+            evidence = _evidence_level(papers)
+            a["papers"] = papers
+            a["evidence_level"] = evidence
+            a["transferability_score"] = _adjust_score(
+                a.get("transferability_score", 50), evidence
+            )
 
+        # Re-sort after score adjustment
+        analogies.sort(key=lambda a: a["transferability_score"], reverse=True)
+
+        synthesis = synthesise(problem, analogies, lang)
         return jsonify({"structure": structure, "analogies": analogies, "synthesis": synthesis})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -52,9 +77,10 @@ def deep_dive_route():
     if not problem or not analogy:
         return jsonify({"error": "Missing problem or analogy"}), 400
     try:
-        result = deep_dive(problem, analogy, lang)
-        # Add Wikipedia context for the analogy domain
-        result["wikipedia"] = get_summary(analogy.get("domain", ""))
+        # Fetch Wikipedia BEFORE calling LLM — used to ground the deep dive
+        wiki = get_summary(analogy.get("domain", ""))
+        result = deep_dive(problem, analogy, lang, wikipedia=wiki)
+        result["wikipedia"] = wiki
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

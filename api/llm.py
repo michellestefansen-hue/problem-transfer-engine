@@ -153,7 +153,7 @@ def synthesise(problem: str, analogies: list, lang: str = "en") -> dict:
     return _call(_system(SYNTHESIS_PROMPT, lang), user, temperature=0.3, json_mode=True)
 
 
-def deep_dive(problem: str, analogy: dict, lang: str = "en") -> dict:
+def deep_dive(problem: str, analogy: dict, lang: str = "en", wikipedia: dict = None) -> dict:
     payload = {
         "problem": problem,
         "analogy_domain": analogy.get("domain"),
@@ -161,4 +161,15 @@ def deep_dive(problem: str, analogy: dict, lang: str = "en") -> dict:
         "why_similar": analogy.get("why_similar"),
         "where_it_breaks": analogy.get("where_it_breaks"),
     }
-    return _call(_system(DEEP_DIVE_PROMPT, lang), json.dumps(payload, indent=2), temperature=0.3, json_mode=True)
+
+    # Ground the LLM with factual Wikipedia context about the source domain
+    system = _system(DEEP_DIVE_PROMPT, lang)
+    if wikipedia and wikipedia.get("extract"):
+        system += (
+            f"\n\nFACTUAL CONTEXT about {analogy.get('domain')} (from Wikipedia):\n"
+            f"{wikipedia['extract']}\n\n"
+            f"Use this factual context to make your explanations and transfer steps more accurate and specific. "
+            f"Do not contradict facts stated above."
+        )
+
+    return _call(system, json.dumps(payload, indent=2), temperature=0.3, json_mode=True)
