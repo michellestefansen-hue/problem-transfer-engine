@@ -4,6 +4,10 @@ All LLM logic lives in llm.py.
 All external data sources live in sources/.
 """
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(__file__))
+
 from flask import Flask, render_template, request, jsonify
 from llm import structure_problem, find_analogies, synthesise, deep_dive
 
