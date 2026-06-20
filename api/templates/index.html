@@ -82,6 +82,40 @@
       </div>
     </div>
 
+    <!-- Step 3: Editable structure + assumptions -->
+    <div id="step-structure" class="hidden space-y-6 mb-8">
+
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-center gap-2 mb-1">
+          <button onclick="backToQuestions()" class="text-slate-400 hover:text-slate-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+              <path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <h3 id="structure-edit-heading" class="text-sm font-semibold text-slate-700"></h3>
+        </div>
+        <p id="structure-edit-tip" class="text-xs text-slate-400 mb-5 ml-6"></p>
+        <div id="structure-edit-grid" class="grid grid-cols-2 gap-3"></div>
+      </div>
+
+      <!-- Hidden assumptions -->
+      <div id="assumptions-block" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <h3 id="assumptions-heading-el" class="text-sm font-semibold text-slate-700 mb-4"></h3>
+        <div id="assumptions-list" class="space-y-3"></div>
+      </div>
+
+      <div class="flex items-center justify-end gap-3">
+        <span id="generate-status" class="text-xs text-slate-400"></span>
+        <button id="generate-btn" onclick="generateAnalogies()"
+          class="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd" />
+          </svg>
+          <span id="generate-btn-label"></span>
+        </button>
+      </div>
+    </div>
+
     <div id="results" class="hidden space-y-8">
 
       <!-- Synthesis -->
@@ -152,7 +186,13 @@
         nextBtn: 'Next',
         questionsHeading: 'Three quick questions to sharpen the analysis',
         questionsTip: 'Skip any question you prefer not to answer.',
-        analyzeLabel: 'Find analogies',
+        analyzeLabel: 'Analyse problem',
+        structureHeadingLabel: 'Problem structure — review and edit',
+        structureTip: 'Correct anything that is wrong before we generate analogies.',
+        assumptionsHeading: 'Hidden assumptions in how you framed this',
+        assumptionChallenge: 'Challenge',
+        generateBtn: 'Generate analogies',
+        generatingMsg: 'Finding analogies — this takes 20–30 seconds',
         papersLabel: 'Related research',
         exploreBtn: 'Explore this idea',
         wikiLabel: 'About this domain',
@@ -214,7 +254,13 @@
         nextBtn: 'Neste',
         questionsHeading: 'Tre raske spørsmål for å skjerpe analysen',
         questionsTip: 'Hopp over spørsmål du ikke vil svare på.',
-        analyzeLabel: 'Finn analogier',
+        analyzeLabel: 'Analyser problem',
+        structureHeadingLabel: 'Problemstruktur — gjennomgå og rediger',
+        structureTip: 'Korriger det som ikke stemmer før vi genererer analogier.',
+        assumptionsHeading: 'Skjulte antakelser i hvordan du formulerte problemet',
+        assumptionChallenge: 'Utfordring',
+        generateBtn: 'Generer analogier',
+        generatingMsg: 'Finner analogier — dette tar 20–30 sekunder',
         papersLabel: 'Relatert forskning',
         exploreBtn: 'Utforsk denne ideen',
         wikiLabel: 'Om dette domenet',
@@ -293,6 +339,14 @@
       if (qHeading) qHeading.textContent = t.questionsHeading
       const qTip = document.getElementById('questions-tip')
       if (qTip) qTip.textContent = t.questionsTip
+      const genLabel = document.getElementById('generate-btn-label')
+      if (genLabel) genLabel.textContent = t.generateBtn
+      const assHead = document.getElementById('assumptions-heading-el')
+      if (assHead) assHead.textContent = t.assumptionsHeading
+      const structHead = document.getElementById('structure-edit-heading')
+      if (structHead) structHead.textContent = t.structureHeadingLabel
+      const structTip = document.getElementById('structure-edit-tip')
+      if (structTip) structTip.textContent = t.structureTip
 
       document.getElementById('lang-en').className = l === 'en'
         ? 'px-3 py-1.5 text-xs font-semibold rounded-md transition-colors bg-white text-slate-800 shadow-sm'
@@ -327,6 +381,7 @@
       }
     }
 
+    // Step 2 → Step 3: fetch structure and show editable view
     async function analyze() {
       const problem = document.getElementById('problem-input').value.trim()
       if (!problem) return
@@ -340,21 +395,20 @@
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
       </svg><span>${t.analyzing}</span>`
       status.textContent = t.statusMsg
-      document.getElementById('results').classList.add('hidden')
-
-      const answers = getAnswers()
 
       try {
-        const res = await fetch('/analyze', {
+        const res = await fetch('/structure', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ problem, lang, answers })
+          body: JSON.stringify({ problem, lang, answers: getAnswers() })
         })
         const data = await res.json()
         if (data.error) throw new Error(data.error)
-        Object.keys(cache).forEach(k => delete cache[k])
-        cache[lang] = data
-        renderResults(data)
+        _currentStructure = data.structure
+        renderStructureEditor(data.structure, t)
+        document.getElementById('step-questions').classList.add('hidden')
+        document.getElementById('step-structure').classList.remove('hidden')
+        document.getElementById('results').classList.add('hidden')
       } catch (e) {
         status.textContent = 'Error: ' + e.message
       } finally {
@@ -363,6 +417,93 @@
           <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd" />
         </svg><span id="analyze-label">${i18n[lang].analyzeLabel}</span>`
         status.textContent = ''
+      }
+    }
+
+    function backToQuestions() {
+      document.getElementById('step-structure').classList.add('hidden')
+      document.getElementById('step-questions').classList.remove('hidden')
+    }
+
+    function renderStructureEditor(structure, t) {
+      document.getElementById('structure-edit-heading').textContent = t.structureHeadingLabel
+      document.getElementById('structure-edit-tip').textContent = t.structureTip
+      document.getElementById('generate-btn-label').textContent = t.generateBtn
+      document.getElementById('assumptions-heading-el').textContent = t.assumptionsHeading
+
+      const sectionDefs = [
+        { key: 'mechanisms', label: t.sections[0], color: 'violet' },
+        { key: 'constraints', label: t.sections[1], color: 'amber' },
+        { key: 'desired_outcomes', label: t.sections[2], color: 'emerald' },
+        { key: 'anti_goals', label: t.sections[3], color: 'rose' },
+      ]
+
+      document.getElementById('structure-edit-grid').innerHTML = sectionDefs.map(s => `
+        <div class="bg-${s.color}-50 border border-${s.color}-100 rounded-xl p-4">
+          <div class="text-xs font-semibold text-${s.color}-600 mb-2">${s.label}</div>
+          <div id="edit-${s.key}" class="space-y-1.5">
+            ${(structure[s.key] || []).map((item, i) => `
+              <div class="flex gap-1.5 items-start">
+                <span class="text-${s.color}-400 mt-2 text-xs shrink-0">•</span>
+                <input type="text" value="${item.replace(/"/g, '&quot;')}"
+                  data-field="${s.key}" data-index="${i}"
+                  onchange="updateStructureField(this)"
+                  class="w-full text-xs text-slate-700 bg-white border border-${s.color}-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-${s.color}-400" />
+              </div>`).join('')}
+          </div>
+        </div>`).join('')
+
+      const assumptions = structure.hidden_assumptions || []
+      document.getElementById('assumptions-list').innerHTML = assumptions.length ? assumptions.map(a => `
+        <div class="border border-slate-200 rounded-xl p-4 space-y-1.5">
+          <p class="text-sm text-slate-700">"${a.assumption}"</p>
+          <p class="text-xs text-violet-600 font-medium">${t.assumptionChallenge}: ${a.challenge}</p>
+        </div>`).join('') : '<p class="text-xs text-slate-400">No assumptions extracted.</p>'
+    }
+
+    function updateStructureField(input) {
+      const field = input.dataset.field
+      const index = parseInt(input.dataset.index)
+      if (_currentStructure && _currentStructure[field]) {
+        _currentStructure[field][index] = input.value
+      }
+    }
+
+    // Step 3 → Results: generate analogies from (possibly edited) structure
+    async function generateAnalogies() {
+      const problem = document.getElementById('problem-input').value.trim()
+      if (!problem || !_currentStructure) return
+      const t = i18n[lang]
+      const btn = document.getElementById('generate-btn')
+      const status = document.getElementById('generate-status')
+
+      btn.disabled = true
+      btn.innerHTML = `<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+      </svg><span>${t.generatingMsg}</span>`
+      status.textContent = ''
+
+      try {
+        const res = await fetch('/analogies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ problem, structure: _currentStructure, lang, answers: getAnswers() })
+        })
+        const data = await res.json()
+        if (data.error) throw new Error(data.error)
+        Object.keys(cache).forEach(k => delete cache[k])
+        const full = { structure: _currentStructure, ...data }
+        cache[lang] = full
+        renderResults(full)
+        document.getElementById('step-structure').classList.add('hidden')
+      } catch (e) {
+        status.textContent = 'Error: ' + e.message
+      } finally {
+        btn.disabled = false
+        btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+          <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd" />
+        </svg><span id="generate-btn-label">${t.generateBtn}</span>`
       }
     }
 
@@ -523,6 +664,9 @@
       document.getElementById('results').classList.remove('hidden')
       document.getElementById('results').scrollIntoView({ behavior: 'smooth' })
     }
+
+    // ── Shared state ──────────────────────────────────────────────
+    let _currentStructure = null
 
     // ── Questions step ────────────────────────────────────────────
 

@@ -17,8 +17,6 @@ app = Flask(__name__, template_folder="templates")
 
 
 def _evidence_level(papers: list) -> str:
-    """Only report evidence level when we actually find papers.
-    Absence of papers means the search didn't find anything — not that evidence doesn't exist."""
     n = len(papers)
     if n == 0:
         return None
@@ -28,7 +26,6 @@ def _evidence_level(papers: list) -> str:
 
 
 def _adjust_score(score: int, evidence_level: str) -> int:
-    """Only boost score when we find papers — never penalise absence."""
     adjustment = {"limited": 3, "documented": 6}
     return max(0, min(100, score + adjustment.get(evidence_level, 0)))
 
@@ -52,8 +49,9 @@ def questions():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/analyze", methods=["POST"])
-def analyze():
+@app.route("/structure", methods=["POST"])
+def structure_route():
+    """Step 1: extract problem structure + hidden assumptions. Returns immediately for user review."""
     body = request.json
     problem = body.get("problem", "").strip()
     lang = body.get("lang", "en")
@@ -62,11 +60,25 @@ def analyze():
         return jsonify({"error": "No problem provided"}), 400
     try:
         structure = structure_problem(problem, lang, answers)
+        return jsonify({"structure": structure})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/analogies", methods=["POST"])
+def analogies_route():
+    """Step 2: generate analogies from a (possibly user-edited) structure."""
+    body = request.json
+    problem = body.get("problem", "").strip()
+    structure = body.get("structure", {})
+    lang = body.get("lang", "en")
+    answers = body.get("answers", {})
+    if not problem or not structure:
+        return jsonify({"error": "Missing problem or structure"}), 400
+    try:
         analogies = find_analogies(structure, lang, answers)
 
         mechanisms = structure.get("mechanisms", [])
-
-        # First pass: enrich all analogies with OpenAlex papers + score adjustment
         for a in analogies:
             papers = find_papers(mechanisms, a["domain"])
             evidence = _evidence_level(papers)
@@ -76,16 +88,14 @@ def analyze():
                 a.get("transferability_score", 50), evidence
             )
 
-        # Sort by score before Wikipedia validation
         analogies.sort(key=lambda x: x["transferability_score"], reverse=True)
 
-        # Second pass: Wikipedia fact-check only the top 2 — halves latency
         for i, a in enumerate(analogies):
             wiki = get_summary(a.get("domain", "")) if i < 2 else {}
             analogies[i] = validate_analogy_with_wikipedia(a, wiki, lang)
 
         synthesis = synthesise(problem, analogies, lang, answers)
-        return jsonify({"structure": structure, "analogies": analogies, "synthesis": synthesis})
+        return jsonify({"analogies": analogies, "synthesis": synthesis})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

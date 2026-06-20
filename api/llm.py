@@ -9,20 +9,28 @@ LANG_INSTRUCTION = {
     "no": "CRITICAL: Keep all JSON keys exactly as specified in English. Only translate the VALUES into Norwegian bokmål. Do not translate any JSON key names.",
 }
 
-STRUCTURE_PROMPT = """You are a structural problem analyst. Extract the underlying structure of a problem.
+STRUCTURE_PROMPT = """You are a structural problem analyst. Extract the underlying structure of a problem AND surface hidden assumptions in how it was framed.
 
 Return a JSON object with exactly these fields:
 {
   "mechanisms": [...],
   "constraints": [...],
   "desired_outcomes": [...],
-  "anti_goals": [...]
+  "anti_goals": [...],
+  "hidden_assumptions": [
+    {
+      "assumption": "a belief embedded in how the problem was framed — something the user stated or implied as fixed that may not be",
+      "challenge": "a one-sentence question that challenges whether this assumption is actually true or necessary"
+    }
+  ]
 }
 
 Rules:
-- Be precise and abstract. "Queue management" is better than "waiting room problems".
-- Constraints are the most important field — be specific about what legally, physically, or ethically cannot change.
-- List 3-6 items per field.
+- mechanisms: the core processes at play, precise and abstract (3-6 items)
+- constraints: what legally, physically, or ethically cannot change — be specific (3-6 items)
+- desired_outcomes: what success looks like (3-5 items)
+- anti_goals: what must not happen even if it improves the primary metric (2-4 items)
+- hidden_assumptions: exactly 3 assumptions. These are beliefs the user stated or implied as fixed truths. Surface assumptions about: who owns the problem, what the cause is, what the solution space looks like, what cannot be changed. Each challenge should reframe — not criticise.
 - Return ONLY valid JSON. No explanation, no markdown."""
 
 ANALOGY_PROMPT = """You are a cross-domain reasoning engine. You find structural analogies between problem domains.
