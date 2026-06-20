@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from flask import Flask, render_template, request, jsonify
-from llm import structure_problem, find_analogies, synthesise, deep_dive
+from llm import structure_problem, find_analogies, synthesise, deep_dive, validate_analogy_with_wikipedia
 from sources.wikipedia import get_summary
 from sources.openalex import find_papers
 
@@ -17,17 +17,19 @@ app = Flask(__name__, template_folder="templates")
 
 
 def _evidence_level(papers: list) -> str:
+    """Only report evidence level when we actually find papers.
+    Absence of papers means the search didn't find anything — not that evidence doesn't exist."""
     n = len(papers)
     if n == 0:
-        return "undocumented"
+        return None
     if n == 1:
         return "limited"
     return "documented"
 
 
 def _adjust_score(score: int, evidence_level: str) -> int:
-    """Nudge transferability score based on evidence from OpenAlex."""
-    adjustment = {"undocumented": -8, "limited": -3, "documented": 0}
+    """Only boost score when we find papers — never penalise absence."""
+    adjustment = {"limited": 3, "documented": 6}
     return max(0, min(100, score + adjustment.get(evidence_level, 0)))
 
 

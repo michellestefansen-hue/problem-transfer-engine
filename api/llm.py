@@ -40,6 +40,16 @@ RULES:
 - Reject superficial analogies. "Both involve people waiting" is NOT structural similarity.
 - action_next_step must be a single concrete action completable within ONE WEEK, not a project description.
 
+For each analogy, you must also assess its EPISTEMIC STATUS — what kind of knowledge this claim is actually based on.
+
+Epistemic basis types:
+- "empirical": this cross-domain transfer has been studied and measured in academic literature
+- "implementation": a named organisation has implemented this and published results, but it hasn't been formally studied as a transfer
+- "structural": the structural similarity is strong and well-reasoned, but no documented transfer exists
+- "speculative": the analogy is plausible but the reasoning is primarily inferential
+
+Be honest. Most analogies are "structural" or "speculative". Only use "empirical" if you are confident peer-reviewed research on this specific transfer exists.
+
 Return a JSON array of exactly 4 objects:
 {
   "domain": "name of the domain",
@@ -50,7 +60,11 @@ Return a JSON array of exactly 4 objects:
   "transferability_score": 0-100,
   "where_it_holds": "the core reason this analogy is structurally valid",
   "where_it_breaks": "the single most important reason this analogy could fail",
-  "action_next_step": "one concrete action completable within one week, written as an instruction"
+  "action_next_step": "one concrete action completable within one week, written as an instruction",
+  "epistemic_status": {
+    "basis": "empirical|implementation|structural|speculative",
+    "confidence_note": "one honest sentence about what this claim is actually based on and what you are uncertain about"
+  }
 }
 
 Return ONLY valid JSON array. No explanation, no markdown."""
@@ -136,6 +150,60 @@ def _call(system: str, user: str, temperature: float = 0.3, json_mode: bool = Fa
 
 def _system(prompt: str, lang: str) -> str:
     return prompt + "\n\n" + LANG_INSTRUCTION.get(lang, "")
+
+
+VALIDATE_PROMPT = """You proposed an analogy between two domains. You are now given factual information from Wikipedia about the concrete example you cited.
+
+Your job: critically re-examine your analogy in light of this factual context.
+
+Ask yourself:
+- Does the Wikipedia description confirm or contradict the mechanism you claimed?
+- Is your concrete example accurate, or should it be corrected or replaced?
+- Does the structural similarity still hold, or should the analogy be weakened or strengthened?
+- Does your transferability score need adjustment based on the facts?
+
+Return a JSON object with these fields:
+{
+  "domain": "same as before",
+  "explanation_level": "same as before",
+  "why_similar": "updated if needed — must now be grounded in the Wikipedia facts",
+  "solution_method": "updated if the facts revealed something more accurate",
+  "concrete_example": "corrected if your original example was inaccurate",
+  "transferability_score": updated integer if the facts change your confidence,
+  "where_it_holds": "updated based on facts",
+  "where_it_breaks": "updated — did the Wikipedia facts reveal a new failure mode?",
+  "action_next_step": "same or updated",
+  "epistemic_status": {
+    "basis": "empirical|implementation|structural|speculative",
+    "confidence_note": "updated — now explicitly reference what the Wikipedia source confirmed or contradicted"
+  },
+  "wikipedia_changed_answer": true or false,
+  "what_changed": "one sentence on what the Wikipedia facts caused you to revise, or 'Nothing changed — the facts confirmed the original analogy'"
+}
+
+Return ONLY valid JSON. No explanation, no markdown."""
+
+
+def validate_analogy_with_wikipedia(analogy: dict, wikipedia: dict, lang: str = "en") -> dict:
+    """Send analogy + Wikipedia facts back to LLM. Ask it to confirm or revise."""
+    if not wikipedia or not wikipedia.get("extract"):
+        return analogy
+
+    system = _system(VALIDATE_PROMPT, lang)
+    user = (
+        f"YOUR ORIGINAL ANALOGY:\n{json.dumps(analogy, indent=2)}\n\n"
+        f"WIKIPEDIA FACTS about '{wikipedia.get('title', analogy.get('domain'))}':\n"
+        f"{wikipedia['extract']}\n\n"
+        f"Re-examine your analogy in light of these facts."
+    )
+    try:
+        revised = _call(system, user, temperature=0.2, json_mode=True)
+        # Preserve papers and evidence_level from original
+        revised["papers"] = analogy.get("papers", [])
+        revised["evidence_level"] = analogy.get("evidence_level")
+        return revised
+    except Exception:
+        return analogy
 
 
 def structure_problem(problem: str, lang: str = "en") -> dict:

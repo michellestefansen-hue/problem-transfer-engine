@@ -126,6 +126,18 @@
         exploreBtn: 'Explore this idea',
         wikiLabel: 'About this domain',
         evidenceLabels: { documented: 'Documented', limited: 'Limited evidence', undocumented: 'Undocumented' },
+        epistemicLabels: {
+          empirical: 'Peer-reviewed evidence',
+          implementation: 'Known implementation',
+          structural: 'Structural reasoning',
+          speculative: 'Speculative'
+        },
+        epistemicHelp: {
+          empirical: 'This transfer has been studied and measured in academic literature.',
+          implementation: 'A named organisation has implemented this with published results, but it has not been formally studied as a cross-domain transfer.',
+          structural: 'The structural similarity is well-reasoned, but no documented transfer exists. Treat as a hypothesis to test.',
+          speculative: 'This analogy is plausible but primarily inferential. Use with caution and verify before acting.'
+        },
         panelLabel: 'Deep dive',
         panelLoading: 'Generating deep dive — this takes 20–30 seconds',
         s1Title: 'How it works — simply explained',
@@ -171,6 +183,18 @@
         exploreBtn: 'Utforsk denne ideen',
         wikiLabel: 'Om dette domenet',
         evidenceLabels: { documented: 'Dokumentert', limited: 'Begrenset evidens', undocumented: 'Udokumentert' },
+        epistemicLabels: {
+          empirical: 'Fagfellevurdert forskning',
+          implementation: 'Kjent implementasjon',
+          structural: 'Strukturell resonnering',
+          speculative: 'Spekulativ'
+        },
+        epistemicHelp: {
+          empirical: 'Denne overføringen er studert og målt i akademisk litteratur.',
+          implementation: 'En navngitt organisasjon har implementert dette med publiserte resultater, men det er ikke formelt studert som tverrfaglig overføring.',
+          structural: 'Den strukturelle likheten er godt begrunnet, men ingen dokumentert overføring finnes. Behandle som en hypotese som må testes.',
+          speculative: 'Denne analogien er plausibel men primært slutningsbasert. Bruk med varsomhet og verifiser før du handler.'
+        },
         panelLabel: 'Dypdykk',
         panelLoading: 'Genererer dypdykk — dette tar 20–30 sekunder',
         s1Title: 'Slik fungerer det — enkelt forklart',
@@ -396,6 +420,30 @@
                 <span class="font-semibold ${isBest ? 'text-white' : 'text-violet-700'}">${t.nextStep}: </span>${a.action_next_step}
               </p>
             </div>
+
+            ${a.epistemic_status ? (() => {
+              const basis = a.epistemic_status.basis
+              const styles = {
+                empirical:       'bg-emerald-50 border-emerald-200 text-emerald-700',
+                implementation:  'bg-blue-50 border-blue-200 text-blue-700',
+                structural:      'bg-amber-50 border-amber-200 text-amber-700',
+                speculative:     'bg-slate-50 border-slate-200 text-slate-500',
+              }
+              const icons = {
+                empirical:      '🔬',
+                implementation: '🏗️',
+                structural:     '🧩',
+                speculative:    '💭',
+              }
+              return `<div class="border rounded-xl px-4 py-3 ${styles[basis] || styles.speculative}">
+                <div class="flex items-center gap-2 mb-1">
+                  <span>${icons[basis] || '💭'}</span>
+                  <span class="text-xs font-semibold">${t.epistemicLabels[basis] || basis}</span>
+                </div>
+                <p class="text-xs leading-relaxed opacity-80">${t.epistemicHelp[basis] || ''}</p>
+                ${a.epistemic_status.confidence_note ? `<p class="text-xs mt-1 italic opacity-70">"${a.epistemic_status.confidence_note}"</p>` : ''}
+              </div>`
+            })() : ''}
 
             ${(a.papers && a.papers.length > 0) ? `
             <div class="border-t border-slate-100 pt-4">
