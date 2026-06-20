@@ -138,6 +138,7 @@
           structural: 'The structural similarity is well-reasoned, but no documented transfer exists. Treat as a hypothesis to test.',
           speculative: 'This analogy is plausible but primarily inferential. Use with caution and verify before acting.'
         },
+        wikiRevisedLabel: 'Revised after Wikipedia fact-check',
         panelLabel: 'Deep dive',
         panelLoading: 'Generating deep dive — this takes 20–30 seconds',
         s1Title: 'How it works — simply explained',
@@ -176,7 +177,7 @@
         whereHolds: 'Where it holds',
         whereBreaks: 'Where it breaks down',
         nextStep: 'Do this next week',
-        levelLabels: { technical: 'Technical', behavioural: 'Behavioural', biological: 'Biological', operational: 'Operational' },
+        levelLabels: { established: 'Established', unexpected: 'Unexpected', 'non-human': 'Non-human system', 'expert-challenger': 'Expert challenger' },
       },
       no: {
         papersLabel: 'Relatert forskning',
@@ -195,6 +196,7 @@
           structural: 'Den strukturelle likheten er godt begrunnet, men ingen dokumentert overføring finnes. Behandle som en hypotese som må testes.',
           speculative: 'Denne analogien er plausibel men primært slutningsbasert. Bruk med varsomhet og verifiser før du handler.'
         },
+        wikiRevisedLabel: 'Revidert etter Wikipedia-faktasjekk',
         panelLabel: 'Dypdykk',
         panelLoading: 'Genererer dypdykk — dette tar 20–30 sekunder',
         s1Title: 'Slik fungerer det — enkelt forklart',
@@ -233,7 +235,7 @@
         whereHolds: 'Hvor det holder',
         whereBreaks: 'Hvor det bryter ned',
         nextStep: 'Gjør dette neste uke',
-        levelLabels: { technical: 'Teknisk', behavioural: 'Atferdsbasert', biological: 'Biologisk', operational: 'Operasjonell' },
+        levelLabels: { established: 'Etablert', unexpected: 'Uventet', 'non-human': 'Ikke-menneskelig system', 'expert-challenger': 'Ekspertutfordrer' },
       }
     }
 
@@ -373,6 +375,7 @@
                 <span class="text-xs text-slate-400">${levelLabel}</span>
               </div>
               ${isBest ? `<span class="ml-1 text-xs font-semibold text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">${t.bestMatch}</span>` : ''}
+              ${a.wikipedia_changed_answer ? `<span class="ml-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full" title="${a.what_changed || ''}">✎ ${t.wikiRevisedLabel}</span>` : ''}
               ${a.evidence_level ? `<span class="ml-1 text-xs font-medium px-2 py-0.5 rounded-full ${
                 a.evidence_level === 'documented' ? 'text-emerald-700 bg-emerald-50' :
                 a.evidence_level === 'limited' ? 'text-amber-700 bg-amber-50' :

@@ -49,10 +49,16 @@ def analyze():
         structure = structure_problem(problem, lang)
         analogies = find_analogies(structure, lang)
 
-        # Enrich each analogy with OpenAlex papers, then use paper count
-        # to adjust transferability score — undocumented analogies score lower
         mechanisms = structure.get("mechanisms", [])
+        validated = []
         for a in analogies:
+            # 1. Fetch Wikipedia for the analogy domain
+            wiki = get_summary(a.get("domain", ""))
+
+            # 2. Send analogy + Wikipedia facts back to LLM — confirm or revise
+            a = validate_analogy_with_wikipedia(a, wiki, lang)
+
+            # 3. Enrich with OpenAlex papers and adjust score
             papers = find_papers(mechanisms, a["domain"])
             evidence = _evidence_level(papers)
             a["papers"] = papers
@@ -60,10 +66,9 @@ def analyze():
             a["transferability_score"] = _adjust_score(
                 a.get("transferability_score", 50), evidence
             )
+            validated.append(a)
 
-        # Re-sort after score adjustment
-        analogies.sort(key=lambda a: a["transferability_score"], reverse=True)
-
+        analogies = sorted(validated, key=lambda x: x["transferability_score"], reverse=True)
         synthesis = synthesise(problem, analogies, lang)
         return jsonify({"structure": structure, "analogies": analogies, "synthesis": synthesis})
     except Exception as e:

@@ -27,33 +27,35 @@ Rules:
 
 ANALOGY_PROMPT = """You are a cross-domain reasoning engine. You find structural analogies between problem domains.
 
-Given a structured problem, find 4 analogies from 4 DIFFERENT explanation levels:
-1. A TECHNICAL/ENGINEERING domain (systems, algorithms, infrastructure)
-2. A BEHAVIOURAL/SOCIAL domain (psychology, economics, organisational behaviour)
-3. A BIOLOGICAL/NATURAL domain (evolution, ecology, immune systems, ant colonies)
-4. An OPERATIONAL domain (logistics, manufacturing, military, aviation)
+Given a structured problem, find EXACTLY 4 analogies — one from each of these four roles:
+
+ROLE 1 — THE ESTABLISHED: The most well-documented cross-domain transfer relevant to this problem. This may be a "classic" analogy (lean manufacturing, TCP, swarm intelligence etc.) — include it precisely BECAUSE it is well-documented and evidence-based. Explain why it is the strongest known transfer.
+
+ROLE 2 — THE UNEXPECTED: A domain that practitioners in the user's field would not immediately think of. It must be structurally valid — not merely surprising. If it cannot be both unexpected AND structurally rigorous, choose rigour over novelty.
+
+ROLE 3 — THE NON-HUMAN: A biological, physical, chemical, or ecological system. No human organisations. The mechanism must be non-obvious and specifically relevant to the problem structure.
+
+ROLE 4 — THE EXPERT CHALLENGER: An analogy that would surprise or challenge an expert in the user's own field — something that reframes a core assumption they hold about their problem.
 
 RULES:
-- Do NOT pick domains obvious to practitioners in the user's field.
 - Do NOT pick the same industry as the input.
 - Be honest about where the analogy breaks down — this is more valuable than overselling it.
 - Reject superficial analogies. "Both involve people waiting" is NOT structural similarity.
 - action_next_step must be a single concrete action completable within ONE WEEK, not a project description.
+- The four analogies must be genuinely different from each other in their explanatory logic.
 
-For each analogy, you must also assess its EPISTEMIC STATUS — what kind of knowledge this claim is actually based on.
+For each analogy, assess its EPISTEMIC STATUS:
+- "empirical": cross-domain transfer studied and measured in peer-reviewed literature
+- "implementation": named organisation implemented this with published results, not formally studied as a transfer
+- "structural": strong structural similarity, well-reasoned, but no documented transfer exists
+- "speculative": plausible but primarily inferential
 
-Epistemic basis types:
-- "empirical": this cross-domain transfer has been studied and measured in academic literature
-- "implementation": a named organisation has implemented this and published results, but it hasn't been formally studied as a transfer
-- "structural": the structural similarity is strong and well-reasoned, but no documented transfer exists
-- "speculative": the analogy is plausible but the reasoning is primarily inferential
-
-Be honest. Most analogies are "structural" or "speculative". Only use "empirical" if you are confident peer-reviewed research on this specific transfer exists.
+Be honest. Most analogies are "structural" or "speculative". Only use "empirical" if confident.
 
 Return a JSON array of exactly 4 objects:
 {
   "domain": "name of the domain",
-  "explanation_level": "technical|behavioural|biological|operational",
+  "explanation_level": "established|unexpected|non-human|expert-challenger",
   "why_similar": "the specific structural mechanism they share — not surface similarity",
   "solution_method": "the concrete technique or approach used in this domain",
   "concrete_example": "a real, named implementation of this solution",
