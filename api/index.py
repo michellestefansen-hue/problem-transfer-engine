@@ -65,15 +65,9 @@ def analyze():
         analogies = find_analogies(structure, lang, answers)
 
         mechanisms = structure.get("mechanisms", [])
-        validated = []
+
+        # First pass: enrich all analogies with OpenAlex papers + score adjustment
         for a in analogies:
-            # 1. Fetch Wikipedia for the analogy domain
-            wiki = get_summary(a.get("domain", ""))
-
-            # 2. Send analogy + Wikipedia facts back to LLM — confirm or revise
-            a = validate_analogy_with_wikipedia(a, wiki, lang)
-
-            # 3. Enrich with OpenAlex papers and adjust score
             papers = find_papers(mechanisms, a["domain"])
             evidence = _evidence_level(papers)
             a["papers"] = papers
@@ -81,10 +75,16 @@ def analyze():
             a["transferability_score"] = _adjust_score(
                 a.get("transferability_score", 50), evidence
             )
-            validated.append(a)
 
-        analogies = sorted(validated, key=lambda x: x["transferability_score"], reverse=True)
-        synthesis = synthesise(problem, analogies, lang)
+        # Sort by score before Wikipedia validation
+        analogies.sort(key=lambda x: x["transferability_score"], reverse=True)
+
+        # Second pass: Wikipedia fact-check only the top 2 — halves latency
+        for i, a in enumerate(analogies):
+            wiki = get_summary(a.get("domain", "")) if i < 2 else {}
+            analogies[i] = validate_analogy_with_wikipedia(a, wiki, lang)
+
+        synthesis = synthesise(problem, analogies, lang, answers)
         return jsonify({"structure": structure, "analogies": analogies, "synthesis": synthesis})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

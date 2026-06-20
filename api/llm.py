@@ -41,7 +41,9 @@ RULES:
 - Do NOT pick the same industry as the input.
 - Be honest about where the analogy breaks down — this is more valuable than overselling it.
 - Reject superficial analogies. "Both involve people waiting" is NOT structural similarity.
-- action_next_step must be a single concrete action completable within ONE WEEK, not a project description.
+- action_next_step must be a single concrete action completable within ONE WEEK by one person with no budget.
+  ✗ BAD: "Implement a scheduling system inspired by air traffic control"
+  ✓ GOOD: "Spend 90 minutes mapping every handoff between departments on a whiteboard, marking which ones have no agreed owner"
 - The four analogies must be genuinely different from each other in their explanatory logic.
 
 For each analogy, assess its EPISTEMIC STATUS:
@@ -235,29 +237,49 @@ def generate_questions(problem: str, lang: str = "en") -> dict:
     return _call(_system(QUESTIONS_PROMPT, lang), problem, temperature=0.3, json_mode=True)
 
 
-def _with_answers(text: str, answers: dict) -> str:
+def _answers_block(answers: dict) -> str:
     if not answers:
-        return text
+        return ""
     lines = "\n".join(f"- {k}: {v}" for k, v in answers.items() if v and v.strip())
-    return f"{text}\n\nADDITIONAL CONTEXT FROM USER:\n{lines}"
+    return f"\n\nUSER CONTEXT (from clarifying questions):\n{lines}"
 
 
 def structure_problem(problem: str, lang: str = "en", answers: dict = None) -> dict:
-    user = _with_answers(problem, answers)
+    user = problem + _answers_block(answers)
     return _call(_system(STRUCTURE_PROMPT, lang), user, temperature=0.2, json_mode=True)
 
 
 def find_analogies(structure: dict, lang: str = "en", answers: dict = None) -> list:
-    context = _with_answers(
-        f"Find analogies for this problem structure:\n\n{json.dumps(structure, indent=2)}",
-        answers
+    answers_block = _answers_block(answers)
+
+    # Build active instructions from what the user told us
+    active_instructions = ""
+    if answers:
+        tried = next((v for k, v in answers.items() if "tried" in k.lower() or "already" in k.lower()), None)
+        surprising = next((v for k, v in answers.items() if "surpris" in k.lower() or "unexpect" in k.lower() or "counterintuitive" in k.lower()), None)
+        uncertainty = next((v for k, v in answers.items() if "uncertain" in k.lower() or "root cause" in k.lower() or "believe" in k.lower()), None)
+
+        parts = []
+        if tried:
+            parts.append(f"- DO NOT suggest approaches similar to what they have already tried: {tried}")
+        if surprising:
+            parts.append(f"- The user's surprising observation reveals a hidden mechanism — let it inform especially the UNEXPECTED and EXPERT-CHALLENGER analogies: {surprising}")
+        if uncertainty:
+            parts.append(f"- Their root cause uncertainty should guide which structural mechanisms you prioritise: {uncertainty}")
+        if parts:
+            active_instructions = "\n\nINSTRUCTIONS FROM USER ANSWERS:\n" + "\n".join(parts)
+
+    user = (
+        f"Find analogies for this problem structure:\n\n{json.dumps(structure, indent=2)}"
+        + answers_block
+        + active_instructions
     )
-    return _call(_system(ANALOGY_PROMPT, lang), context, temperature=0.4)
+    return _call(_system(ANALOGY_PROMPT, lang), user, temperature=0.4)
 
 
-def synthesise(problem: str, analogies: list, lang: str = "en") -> dict:
+def synthesise(problem: str, analogies: list, lang: str = "en", answers: dict = None) -> dict:
     summary = [{"domain": a["domain"], "why_similar": a["why_similar"]} for a in analogies]
-    user = f"Problem: {problem}\n\nAnalogies:\n{json.dumps(summary, indent=2)}"
+    user = f"Problem: {problem}\n\nAnalogies:\n{json.dumps(summary, indent=2)}" + _answers_block(answers)
     return _call(_system(SYNTHESIS_PROMPT, lang), user, temperature=0.3, json_mode=True)
 
 
