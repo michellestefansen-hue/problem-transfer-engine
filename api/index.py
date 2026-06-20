@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from flask import Flask, render_template, request, jsonify
-from llm import structure_problem, find_analogies, synthesise, deep_dive, validate_analogy_with_wikipedia
+from llm import structure_problem, find_analogies, synthesise, deep_dive, validate_analogy_with_wikipedia, generate_questions
 from sources.wikipedia import get_summary
 from sources.openalex import find_papers
 
@@ -38,16 +38,31 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/analyze", methods=["POST"])
-def analyze():
+@app.route("/questions", methods=["POST"])
+def questions():
     body = request.json
     problem = body.get("problem", "").strip()
     lang = body.get("lang", "en")
     if not problem:
         return jsonify({"error": "No problem provided"}), 400
     try:
-        structure = structure_problem(problem, lang)
-        analogies = find_analogies(structure, lang)
+        result = generate_questions(problem, lang)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/analyze", methods=["POST"])
+def analyze():
+    body = request.json
+    problem = body.get("problem", "").strip()
+    lang = body.get("lang", "en")
+    answers = body.get("answers", {})
+    if not problem:
+        return jsonify({"error": "No problem provided"}), 400
+    try:
+        structure = structure_problem(problem, lang, answers)
+        analogies = find_analogies(structure, lang, answers)
 
         mechanisms = structure.get("mechanisms", [])
         validated = []

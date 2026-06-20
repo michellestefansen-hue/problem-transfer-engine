@@ -208,13 +208,51 @@ def validate_analogy_with_wikipedia(analogy: dict, wikipedia: dict, lang: str = 
         return analogy
 
 
-def structure_problem(problem: str, lang: str = "en") -> dict:
-    return _call(_system(STRUCTURE_PROMPT, lang), problem, temperature=0.2, json_mode=True)
+QUESTIONS_PROMPT = """You are preparing to find cross-domain analogies for a problem. Before doing so, you need 3 pieces of information that will dramatically improve the quality and relevance of the analogies.
+
+Generate exactly 3 short, sharp clarifying questions tailored to THIS specific problem.
+
+Every question set must include one version of each of these three types:
+1. ALREADY TRIED: What approaches have already been attempted? (prevents suggesting the obvious)
+2. SURPRISING OBSERVATION: What is the most counterintuitive or unexpected thing observed about this problem? (reveals hidden mechanisms the user may not have articulated)
+3. ROOT CAUSE UNCERTAINTY: What do they believe the root cause is — and what are they most uncertain about? (separates symptoms from actual problem)
+
+Tailor each question specifically to the problem described. Do not use generic phrasing.
+
+Return a JSON object with exactly this structure:
+{
+  "questions": [
+    { "id": "tried", "question": "...", "placeholder": "e.g. ..." },
+    { "id": "surprising", "question": "...", "placeholder": "e.g. ..." },
+    { "id": "uncertainty", "question": "...", "placeholder": "e.g. ..." }
+  ]
+}
+
+Return ONLY valid JSON. No explanation, no markdown."""
 
 
-def find_analogies(structure: dict, lang: str = "en") -> list:
-    user = f"Find analogies for this problem structure:\n\n{json.dumps(structure, indent=2)}"
-    return _call(_system(ANALOGY_PROMPT, lang), user, temperature=0.4)
+def generate_questions(problem: str, lang: str = "en") -> dict:
+    return _call(_system(QUESTIONS_PROMPT, lang), problem, temperature=0.3, json_mode=True)
+
+
+def _with_answers(text: str, answers: dict) -> str:
+    if not answers:
+        return text
+    lines = "\n".join(f"- {k}: {v}" for k, v in answers.items() if v and v.strip())
+    return f"{text}\n\nADDITIONAL CONTEXT FROM USER:\n{lines}"
+
+
+def structure_problem(problem: str, lang: str = "en", answers: dict = None) -> dict:
+    user = _with_answers(problem, answers)
+    return _call(_system(STRUCTURE_PROMPT, lang), user, temperature=0.2, json_mode=True)
+
+
+def find_analogies(structure: dict, lang: str = "en", answers: dict = None) -> list:
+    context = _with_answers(
+        f"Find analogies for this problem structure:\n\n{json.dumps(structure, indent=2)}",
+        answers
+    )
+    return _call(_system(ANALOGY_PROMPT, lang), context, temperature=0.4)
 
 
 def synthesise(problem: str, analogies: list, lang: str = "en") -> dict:
